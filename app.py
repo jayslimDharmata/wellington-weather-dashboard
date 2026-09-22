@@ -1,20 +1,13 @@
 import re
 from datetime import datetime, timezone
 import matplotlib.pyplot as plt
-from metpy.calc import (
-    bulk_shear,
-    cape_cin,
-    dewpoint_from_relative_humidity,
-    parcel_profile,
-    storm_relative_helicity,
-)
-from metpy.plots import Hodograph, SkewT
+from metpy.calc import bulk_shear, cape_cin, parcel_profile
+from metpy.plots import SkewT
 from metpy.units import units
 import numpy as np
 import pandas as pd
 import requests
-from siphon.simplehttp import SimpleHTTPError
-from siphon.simplehttp.wyoming import WyomingUpperAir
+from siphon.simplewebservice.wyoming import WyomingUpperAir
 import streamlit as st
 
 # Configure the Streamlit page layout
@@ -117,8 +110,10 @@ elif sounding_df is not None:
   prof = parcel_profile(p, t[0], td[0])
   sbcape, sbcin = cape_cin(p, t, td, prof)
 
-  # Calculate Kinematics (0-1km and 0-6km Shear)
-  u_shear_6k, v_shear_6k = bulk_shear(p, u, v, height=height, depth=6000 * units.meter)
+  # Calculate Kinematics (0-6km Shear)
+  u_shear_6k, v_shear_6k = bulk_shear(
+      p, u, v, height=height, depth=6000 * units.meter
+  )
   shear_6k_mag = np.hypot(u_shear_6k, v_shear_6k)
 
   # Display High-Contrast KPI Cards
@@ -126,9 +121,7 @@ elif sounding_df is not None:
   col1.metric("SBCAPE (Thermodynamics)", f"{sbcape.magnitude:.0f} J/kg")
   col2.metric("SBCIN (Cap Strength)", f"{sbcin.magnitude:.0f} J/kg")
   col3.metric("0-6 km Bulk Shear", f"{shear_6k_mag.magnitude:.1f} kts")
-  col4.metric(
-      "Surface Dew Point", f"{td[0].to('degF').magnitude:.1f} °F"
-  )
+  col4.metric("Surface Dew Point", f"{td[0].to('degF').magnitude:.1f} °F")
 
   # Plain-English Diagnostics for Wellington / South Florida
   st.markdown("#### 🔍 Automated Convective Assessment")
@@ -146,9 +139,9 @@ elif sounding_df is not None:
 
   if sbcape.magnitude < 500:
     regime.append(
-        "**Thermodynamics:** Meager surface buoyancy (<500 J/kg). Classic winter"
-        " high-shear/low-CAPE setup where severe risk relies heavily on dynamic"
-        " forcing."
+        "**Thermodynamics:** Meager surface buoyancy (<500 J/kg). Classic"
+        " winter high-shear/low-CAPE setup where severe risk relies heavily on"
+        " dynamic forcing."
     )
   elif sbcape.magnitude < 1500:
     regime.append(
@@ -164,7 +157,7 @@ elif sounding_df is not None:
   for note in regime:
     st.markdown(f"- {note}")
 
-  # Plot the Skew-T & Hodograph
+  # Plot the Skew-T
   fig = plt.figure(figsize=(10, 8))
   skew = SkewT(fig, rotation=45)
   skew.plot(p, t, "r", linewidth=2, label="Temperature")
